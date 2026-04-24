@@ -1,155 +1,76 @@
-import { getGenerativeModel } from '../config/google.config.js';
 import { getPromptByType, SYSTEM_PROMPT } from '../utils/prompt.js';
 import { SUPPORTED_LANGUAGES, REQUEST_TYPES } from '../constants/prompt.js';
 
-/**
- * AI Service for code assistance using Google Gemini
- */
-class AIService {
-  constructor() {
-    this.model = getGenerativeModel();
+const MODEL = 'openrouter/auto';
+
+async function callOpenRouter(systemPrompt, userPrompt) {
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': process.env.CLIENT_URL || 'http://localhost:5173',
+      'X-Title': 'AI Code Assistant',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: userPrompt   },
+      ],
+      max_tokens: 4096,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `OpenRouter error: ${response.status}`);
   }
 
-  /**
-   * Process a code assistance request
-   * @param {string} code - The user's code
-   * @param {string} language - Programming language
-   * @param {string} requestType - Type of request (debug, explain, etc.)
-   * @param {string} additionalContext - Additional context for the request
-   * @returns {Promise<Object>} - AI response
-   */
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
+
+class AIService {
   async processCodeRequest(code, language, requestType, additionalContext = '') {
     try {
-      // Validate inputs
       if (!code || !language || !requestType) {
         throw new Error('Missing required parameters: code, language, or requestType');
       }
-
       if (!SUPPORTED_LANGUAGES[language.toUpperCase()]) {
         throw new Error(`Unsupported language: ${language}`);
       }
-
       if (!REQUEST_TYPES[requestType.toUpperCase()]) {
         throw new Error(`Unsupported request type: ${requestType}`);
       }
 
-      // Generate prompt
       const prompt = getPromptByType(requestType, code, language, additionalContext);
-
-      // Create full prompt with system instructions
-      const fullPrompt = `${SYSTEM_PROMPT}\n\n${prompt}`;
-
-      // Generate response
-      const result = await this.model.generateContent(fullPrompt);
-      const response = result.response;
-      const text = response.text();
+      const text   = await callOpenRouter(SYSTEM_PROMPT, prompt);
 
       return {
-        success: true,
+        success:  true,
         response: text,
-        metadata: {
-          language,
-          requestType,
-          timestamp: new Date(),
-          model: 'gemini-1.5-pro'
-        }
+        metadata: { language, requestType, timestamp: new Date(), model: MODEL },
       };
-
     } catch (error) {
-      console.error('AI Service Error:', error);
+      console.error('AI Service Error:', error.message);
       return {
         success: false,
-        error: error.message,
-        metadata: {
-          language,
-          requestType,
-          timestamp: new Date()
-        }
+        error:   error.message,
+        metadata: { language, requestType, timestamp: new Date() },
       };
     }
   }
 
-  /**
-   * Debug code
-   * @param {string} code - Code to debug
-   * @param {string} language - Programming language
-   * @param {string} error - Error description
-   * @returns {Promise<Object>} - Debug response
-   */
-  async debugCode(code, language, error) {
-    return this.processCodeRequest(code, language, 'debug', error);
-  }
-
-  /**
-   * Explain code
-   * @param {string} code - Code to explain
-   * @param {string} language - Programming language
-   * @returns {Promise<Object>} - Explanation response
-   */
-  async explainCode(code, language) {
-    return this.processCodeRequest(code, language, 'explain');
-  }
-
-  /**
-   * Optimize code
-   * @param {string} code - Code to optimize
-   * @param {string} language - Programming language
-   * @returns {Promise<Object>} - Optimization response
-   */
-  async optimizeCode(code, language) {
-    return this.processCodeRequest(code, language, 'optimize');
-  }
-
-  /**
-   * Review code
-   * @param {string} code - Code to review
-   * @param {string} language - Programming language
-   * @returns {Promise<Object>} - Review response
-   */
-  async reviewCode(code, language) {
-    return this.processCodeRequest(code, language, 'review');
-  }
-
-  /**
-   * Generate test cases
-   * @param {string} code - Code to test
-   * @param {string} language - Programming language
-   * @returns {Promise<Object>} - Test generation response
-   */
-  async generateTests(code, language) {
-    return this.processCodeRequest(code, language, 'test');
-  }
-
-  /**
-   * Execute code (conceptual - returns analysis)
-   * @param {string} code - Code to analyze for execution
-   * @param {string} language - Programming language
-   * @param {string} userRequest - User's execution request
-   * @returns {Promise<Object>} - Execution analysis response
-   */
-  async analyzeExecution(code, language, userRequest) {
-    return this.processCodeRequest(code, language, 'execute', userRequest);
-  }
-
-  /**
-   * Generate documentation
-   * @param {string} code - Code to document
-   * @param {string} language - Programming language
-   * @returns {Promise<Object>} - Documentation response
-   */
-  async generateDocumentation(code, language) {
-    return this.processCodeRequest(code, language, 'document');
-  }
-
-  /**
-   * Refactor code
-   * @param {string} code - Code to refactor
-   * @param {string} language - Programming language
-   * @returns {Promise<Object>} - Refactoring response
-   */
-  async refactorCode(code, language) {
-    return this.processCodeRequest(code, language, 'refactor');
-  }
+  async debugCode(code, language, error)           { return this.processCodeRequest(code, language, 'debug',    error);   }
+  async explainCode(code, language)                { return this.processCodeRequest(code, language, 'explain');           }
+  async optimizeCode(code, language)               { return this.processCodeRequest(code, language, 'optimize');          }
+  async reviewCode(code, language)                 { return this.processCodeRequest(code, language, 'review');            }
+  async generateTests(code, language)              { return this.processCodeRequest(code, language, 'test');              }
+  async analyzeExecution(code, language, request)  { return this.processCodeRequest(code, language, 'execute',  request); }
+  async generateDocumentation(code, language)      { return this.processCodeRequest(code, language, 'document');          }
+  async refactorCode(code, language)               { return this.processCodeRequest(code, language, 'refactor');          }
 }
 
 export default new AIService();

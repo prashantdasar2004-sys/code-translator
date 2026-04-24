@@ -31,20 +31,18 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       setLoading(true);
-      // Temporarily bypass backend for testing
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const mockUser = { id: 1, email, username: email.split('@')[0] };
-      const mockToken = 'mock-jwt-token';
-      
-      localStorage.setItem('token', mockToken);
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      setUser(mockUser);
-      toast.success('Login successful! (Demo mode)');
+      const response = await authService.login({ email, password });
+      const { token, user: userData } = response.data;
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+      toast.success('Login successful!');
       return { success: true };
     } catch (error) {
-      toast.error('Login failed');
-      return { success: false, error: 'Login failed' };
+      const message = error.response?.data?.message || error.response?.data?.error || 'Login failed';
+      toast.error(message);
+      return { success: false, error: message };
     } finally {
       setLoading(false);
     }
@@ -53,20 +51,18 @@ export const AuthProvider = ({ children }) => {
   const register = async (username, email, password) => {
     try {
       setLoading(true);
-      // Temporarily bypass backend for testing
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const mockUser = { id: 1, email, username };
-      const mockToken = 'mock-jwt-token';
-      
-      localStorage.setItem('token', mockToken);
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      setUser(mockUser);
-      toast.success('Registration successful! (Demo mode)');
+      const response = await authService.register({ username, email, password });
+      const { token, user: userData } = response.data;
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+      toast.success('Registration successful!');
       return { success: true };
     } catch (error) {
-      toast.error('Registration failed');
-      return { success: false, error: 'Registration failed' };
+      const message = error.response?.data?.message || error.response?.data?.error || 'Registration failed';
+      toast.error(message);
+      return { success: false, error: message };
     } finally {
       setLoading(false);
     }
