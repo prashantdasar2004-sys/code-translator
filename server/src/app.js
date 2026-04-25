@@ -6,7 +6,10 @@ import routes from './routes/index.js';
 const app = express();
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: [
+    process.env.CLIENT_URL || 'http://localhost:5173',
+    'https://code-translator-qc3q.vercel.app'  // your actual Vercel URL
+  ],
   credentials: true
 }));
 app.use((req, res, next) => {
