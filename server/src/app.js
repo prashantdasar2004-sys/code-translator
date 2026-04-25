@@ -1,17 +1,30 @@
 import express from 'express';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import connectDB from './config/db.config.js';
 import routes from './routes/index.js';
 
+dotenv.config();
+
 const app = express();
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://code-translator-qc3q.vercel.app',
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
 app.use(cors({
-  origin: [
-    process.env.CLIENT_URL || 'http://localhost:5173',
-    'https://code-translator-qc3q.vercel.app'  // your actual Vercel URL
-  ],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
   credentials: true
 }));
+
 app.use((req, res, next) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   next();
